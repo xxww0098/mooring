@@ -1,0 +1,10 @@
+{
+  "id": "mooring",
+  "name": "Mooring",
+  "version": "0.0.1",
+  "minAppVersion": "1.6.0",
+  "description": "把本机 CLI 智能体停靠在当前笔记库旁边。",
+  "author": "MR. XIE",
+  "authorUrl": "https://github.com/xxww0098",
+  "isDesktopOnly": true
+}

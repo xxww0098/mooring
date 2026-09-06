@@ -2,19 +2,18 @@
 
 笔记窗口 + 宿主机 Agent。左边写笔记，右边跑本机已经安装的 CLI 智能体。工作目录就是当前笔记库。
 
-Notes on the left. Local CLI agents on the right. The vault is the working directory.
+## 用 BRAT 安装（Obsidian 桌面）
 
-## 做什么
+1. 在社区插件里安装并启用 [BRAT](https://github.com/TfTHacker/obsidian42-brat)
+2. BRAT → **Add Beta plugin** → 填 `xxww0098/mooring`
+3. 启用 **Mooring**（仅桌面；会 spawn 本机 CLI）
+4. 点左侧功能区机器人图标，右侧打开 Agent 坞
 
-- 三栏：文件树、Markdown 编辑、Agent 坞
-- 只启动本机探测到的运行时（Grok、Claude、Codex、OpenCode 等）
-- 对话叠在伪终端上：聊天输入，底层仍是该 CLI
-- 模型与思考深度来自 [models.dev](https://models.dev) + 本机 `grok models` 一类的列表
-- `@` 引用笔记（芯片在输入框上方），`/` 写进输入框
+当前笔记库就是智能体的工作目录。未探测到的运行时不会出现在新建菜单里。
 
-## 运行
+## 本地开发网页版
 
-需要 Node 22+，以及你想用的 CLI（例如 `grok`）在 `PATH` 里。
+需要 Node 22+。
 
 ```bash
 npm install
@@ -23,20 +22,14 @@ npm run dev
 
 默认 `http://localhost:8080`。
 
+## 构建插件
+
 ```bash
-npm test
-npm run typecheck
+npm install
+npm run build:plugin
 ```
 
-## 设置
-
-右侧 **智能体设置** 里刷新探测、启用/禁用运行时、选默认智能体、选 yolo 或需确认启动。
-
-新建会话标签用智能体名（`Grok`、`Grok 2`、`终端`）。
-
-## 文档
-
-更完整的产品约定见 [DESIGN.md](./DESIGN.md)。
+产物：`main.js`、`styles.css`（和仓库根目录的 `manifest.json` 一起打进 GitHub Release）。
 
 ## License
 
