@@ -45,6 +45,14 @@ import {
 import { useVaultStore } from "@/lib/vault/store";
 import { cn, uid } from "@/lib/utils";
 
+/**
+ * How long a turn with nothing captured yet may sit silent before it is given up. A cold
+ * backend (pi on a cloud model, seen 2026-09-07) can go quiet for well over 20 s and then
+ * answer; closing early orphans that answer in the terminal. The stop button covers the
+ * case where the prompt never arrived.
+ */
+const EMPTY_TURN_TIMEOUT_MS = 60000;
+
 function renderBody(content: string) {
   return <p className="whitespace-pre-wrap break-words">{content}</p>;
 }
@@ -484,7 +492,7 @@ export function AgentChat({ session, pty }: { session: AgentSession; pty: HostPt
       if (idle < 1500) return;
       if (turn.acc.length || turn.live.length) {
         if (Date.now() - turn.quiet < profile.quietMs) return;
-      } else if (idle < 20000) {
+      } else if (idle < EMPTY_TURN_TIMEOUT_MS) {
         return;
       }
       // Poll boundaries can land mid-repaint; the screen is settled by the time a turn
