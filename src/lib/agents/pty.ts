@@ -96,7 +96,7 @@ export function isChromeLine(line: string, chromePatterns: readonly string[]): b
   if (/\d[\d.,]*\s*[kKmM]\s*\/\s*\d[\d.,]*\s*[kKmM]/.test(text)) return true;
   if (/^(thinking|reasoning|working|waiting|loading|compacting)[.…\s]*$/i.test(text)) return true;
   // "Thought for 3s, 455 tokens" / "Worked for 12s" — the timer line every agent prints.
-  if (/^[▸▹>*·•\s]*(thought|thinking|reasoned|worked|brewed|cooked|ran)\s+for\s+\d/i.test(text)) return true;
+  if (/^[▸▹>*·•\s]*(thought|thinking|reasoned|worked|brewed|cooked|ran)(?:\s+for|:)\s*\d/i.test(text)) return true;
   if (/·\s*(always|auto)-approve|·\s*(bypass|read-only|plan mode)/i.test(text)) return true;
   if (/[…⋯]/.test(text) && TIMER_RE.test(text)) return true;
   return lineMatches(chromePatterns, text);
@@ -119,8 +119,18 @@ function displayWidth(text: string): number {
   return width;
 }
 
+/**
+ * The terminal drops the space at a wrap point. Two Latin word characters meeting there
+ * need it back; CJK, punctuation, and hyphen boundaries do not.
+ * ponytail: a Latin word split mid-word gains a stray space; TUIs wrap on words, so rare.
+ */
+const LATIN_WORD_RE = /[A-Za-z0-9]/;
+function wrapJoiner(previous: string, next: string): string {
+  return LATIN_WORD_RE.test(previous.at(-1) ?? "") && LATIN_WORD_RE.test(next[0] ?? "") ? " " : "";
+}
+
 const THINKING_TIMER_RE =
-  /^[\u25b8\u25b9>*\u00b7\u2022\s]*(?:thought|thinking|reasoned|worked|brewed|cooked|ran)\s+for\s+(\d+(?:\.\d+)?)\s*s/i;
+  /^[\u25b8\u25b9>*\u00b7\u2022\s]*(?:thought|thinking|reasoned|worked|brewed|cooked|ran)(?:\s+for|:)\s*(\d+(?:\.\d+)?)\s*s/i;
 
 /** How long the agent said it thought, from its own timer line. */
 export function parseThinkingDuration(rows: readonly { text: string }[]): string | null {
@@ -179,7 +189,7 @@ export function appendTranscriptLines(
           displayWidth(previous) >= cols * 0.6 &&
           !SENTENCE_END_RE.test(previous) &&
           !/^[-*#>\d]/.test(line)));
-    if (continues) into[into.length - 1] += line;
+    if (continues) into[into.length - 1] += wrapJoiner(into[into.length - 1], line) + line;
     else into.push(line);
     added += 1;
   }

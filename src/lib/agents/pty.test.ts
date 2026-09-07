@@ -10,6 +10,7 @@ import {
   isComposerReady,
   appendTranscriptLines,
   parseContextUsage,
+  parseThinkingDuration,
   stripAnsi,
 } from "./pty.ts";
 
@@ -25,6 +26,8 @@ test("every catalog agent has a chat profile", () => {
 test("only profiled agents get the chat view; the rest are terminal-only", () => {
   assert.equal(supportsChatUi("claude"), true);
   assert.equal(supportsChatUi("grok"), true);
+  // Driven through Obsidian on 2026-09-07: a real reply rendered for each of these.
+  for (const id of ["opencode", "pi", "antigravity", "hermes"] as const) assert.equal(supportsChatUi(id), true);
   // A ready prompt alone (aider, copilot, cursor …) does not make the scrape hold up.
   assert.equal(supportsChatUi("aider"), false);
   assert.equal(supportsChatUi("copilot"), false);
@@ -124,6 +127,29 @@ test("a line the agent hard-wrapped at the screen edge rejoins its sentence", ()
   assert.equal(into.length, 2);
   assert.ok(into[0].endsWith("从端节点。"));
   assert.equal(into[1], "- 列表项不会被并进上一行");
+});
+
+test("a wrapped latin sentence gets its space back; a wrapped path and cjk do not", () => {
+  const profile = getAgentChatProfile("opencode");
+  const into: string[] = [];
+  appendTranscriptLines(
+    [
+      row("I'm opencode, an interactive CLI agent for software engineering"),
+      row("tasks, powered by GLM."),
+      row("Thought: 1.3s"),
+      row("Ask anything… \"Fix broken tests\""),
+    ],
+    profile,
+    new Set<string>(),
+    "",
+    into,
+    80,
+  );
+  assert.deepEqual(into, ["I'm opencode, an interactive CLI agent for software engineering tasks, powered by GLM."]);
+  assert.equal(parseThinkingDuration([{ text: "Thought: 1.3s" }]), "1.3s");
+  const path: string[] = [];
+  appendTranscriptLines([row("see /usr/local/lib/node_modules/opencode/dist/index.js and /"), row("etc/hosts.")], profile, new Set<string>(), "", path, 80);
+  assert.deepEqual(path, ["see /usr/local/lib/node_modules/opencode/dist/index.js and /etc/hosts."]);
 });
 
 test("a row captured mid-draw is replaced by its finished text, not duplicated", () => {
