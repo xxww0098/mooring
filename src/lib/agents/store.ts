@@ -4,6 +4,7 @@ import { isAgentPermissionMode, isTuiAgent, nextSessionName, sessionTitle } from
 import type { AgentPermissionMode, DefaultAgentId, LaunchableAgentId, TuiAgent } from "./catalog";
 import type { AgentSession, AgentStatus, AgentViewMode, ChatMessage } from "./types";
 import { isAccessMode, isAgentViewMode, isThinkingLevel } from "./types";
+import { supportsChatUi } from "./chat-profile";
 import type { CatalogFamily } from "./models-catalog";
 import { uid } from "@/lib/utils";
 
@@ -38,15 +39,21 @@ interface AgentState {
     extra?: { exitCode?: number | null; error?: string | null },
   ) => void;
   setViewMode: (id: string, viewMode: AgentViewMode) => void;
-  patchSession: (id: string, patch: Partial<Pick<AgentSession, "modelId" | "thinking" | "accessMode">>) => void;
+  patchSession: (id: string, patch: Partial<Pick<AgentSession, "modelId" | "thinking" | "accessMode" | "context">>) => void;
   appendMessage: (id: string, message: ChatMessage) => void;
   patchMessage: (id: string, messageId: string, patch: Partial<ChatMessage>) => void;
+  removeMessages: (id: string, messageIds: string[]) => void;
+}
+
+/** Chat is opt-in per agent; anything Mooring cannot scrape stays in the terminal. */
+function resolveViewMode(agentId: LaunchableAgentId, requested: unknown): AgentViewMode {
+  return requested !== "terminal" && supportsChatUi(agentId) ? "chat" : "terminal";
 }
 
 function normalizeSession(agent: AgentSession): AgentSession {
   return {
     ...agent,
-    viewMode: agent.viewMode === "terminal" ? "terminal" : "chat",
+    viewMode: resolveViewMode(agent.agentId, agent.viewMode),
     messages: Array.isArray(agent.messages) ? agent.messages : [],
     modelId: typeof agent.modelId === "string" ? agent.modelId : undefined,
     thinking: isThinkingLevel(agent.thinking) ? agent.thinking : undefined,
@@ -113,7 +120,7 @@ export const useAgentStore = create<AgentState>()(
           status: "starting",
           exitCode: null,
           error: null,
-          viewMode: viewMode === "terminal" ? "terminal" : "chat",
+          viewMode: resolveViewMode(agentId, viewMode),
           messages: [],
         };
         set({
@@ -149,7 +156,7 @@ export const useAgentStore = create<AgentState>()(
       setViewMode: (id, viewMode) => {
         set({
           agents: get().agents.map((agent) =>
-            agent.id === id ? { ...agent, viewMode } : agent,
+            agent.id === id ? { ...agent, viewMode: resolveViewMode(agent.agentId, viewMode) } : agent,
           ),
         });
       },
@@ -164,6 +171,16 @@ export const useAgentStore = create<AgentState>()(
         set({
           agents: get().agents.map((agent) =>
             agent.id === id ? { ...agent, messages: [...agent.messages, message] } : agent,
+          ),
+        });
+      },
+      removeMessages: (id, messageIds) => {
+        const drop = new Set(messageIds);
+        set({
+          agents: get().agents.map((agent) =>
+            agent.id === id
+              ? { ...agent, messages: agent.messages.filter((item) => !drop.has(item.id)) }
+              : agent,
           ),
         });
       },

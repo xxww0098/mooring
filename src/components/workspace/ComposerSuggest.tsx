@@ -44,7 +44,7 @@ export function ComposerSuggest({
               onChoose(item);
             }}
             className={cn(
-              "flex w-full items-center gap-2 border-l-2 px-2.5 py-2 text-left text-sm transition-colors duration-100",
+              "flex h-row w-full items-center gap-2 border-l-2 px-3 text-left text-body transition-colors duration-[var(--duration-quick)]",
               selected
                 ? slash
                   ? "border-l-accent bg-accent/15 text-fg"
@@ -76,7 +76,7 @@ export function ComposerSuggest({
               {item.title}
             </span>
             {item.description ? (
-              <span className={cn("max-w-[50%] truncate text-xs", selected ? "text-muted" : "text-subtle")}>
+              <span className={cn("max-w-[50%] truncate text-meta", selected ? "text-muted" : "text-subtle")}>
                 {item.description}
               </span>
             ) : null}

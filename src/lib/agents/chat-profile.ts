@@ -24,7 +24,7 @@ const SHARED_READY = [
   "add a follow-up",
   "type a message",
   "send a message",
-  "shift+tab",
+  "shift\\+tab",
   "bypassing permissions",
   "auto-approve",
   "❯",
@@ -45,6 +45,7 @@ const SHARED_CHROME = [
   "^grok code",
   "^claude code",
   "^bypassing permissions",
+  "esc to interrupt",
   "^\\d+ files?\\b",
   "^\\d+ lines?\\b",
   "^~/",
@@ -104,13 +105,44 @@ const EXTRA_READY: Partial<Record<LaunchableAgentId, string[]>> = {
   goose: ["(o>", "goose"],
   amp: ["> "],
   cursor: ["cursor", "→ add a follow-up"],
+  opencode: ["ask anything"],
+  pi: ["ctrl\\+o"],
+  antigravity: ["antigravity"],
+  hermes: ["^ready\\s"],
 };
 
 const EXTRA_CHROME: Partial<Record<LaunchableAgentId, string[]>> = {
   grok: ["week used", "model:", "gpt-", "grok-"],
-  claude: ["claude opus", "claude sonnet", "claude haiku", "tokens"],
+  claude: ["claude opus", "claude sonnet", "claude haiku", "tokens", "api usage billing", "1m context"],
   codex: ["gpt-5", "codex"],
+  opencode: ["^ask anything"],
+  pi: ["^\\[skills\\]$", "^\\[extensions\\]$", "ctrl\\+o to show"],
+  // The account line ("name@host (Google AI Pro)") sits in the status bar.
+  antigravity: ["^\\S+@\\S+\\.\\S+"],
+  hermes: ["^system prompt\\b", "^ready\\s"],
 };
+
+/**
+ * The chat view is a screen scrape of the agent's own TUI. An agent is listed here only
+ * after a real turn was driven through it inside Obsidian and the reply rendered, with
+ * its prompt (EXTRA_READY) and status-bar chrome (EXTRA_CHROME) profiled from what that
+ * run showed. Verified 2026-09-07 on macOS. Every other agent gets the terminal and
+ * nothing else.
+ */
+const CHAT_UI_IDS = new Set<LaunchableAgentId>([
+  "claude",
+  "openclaude",
+  "codex",
+  "grok",
+  "opencode",
+  "pi",
+  "antigravity",
+  "hermes",
+]);
+
+export function supportsChatUi(id: LaunchableAgentId): boolean {
+  return CHAT_UI_IDS.has(id);
+}
 
 export function getAgentChatProfile(id: LaunchableAgentId): AgentChatProfile {
   const spec = id === "custom" || id === "terminal" ? null : TUI_AGENT_BY_ID[id];

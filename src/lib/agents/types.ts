@@ -39,6 +39,14 @@ export interface ChatAttachment {
   preview?: string;
 }
 
+/** A note or skill the user pointed at with `@`; the file itself is not copied. */
+export interface ChatReference {
+  id: string;
+  kind: "file" | "skill";
+  label: string;
+  value: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: ChatRole;
@@ -46,6 +54,10 @@ export interface ChatMessage {
   createdAt: number;
   pending?: boolean;
   attachments?: ChatAttachment[];
+  references?: ChatReference[];
+  /** The agent's reasoning, kept out of the answer and collapsed by default. */
+  thinking?: string;
+  thinkingDuration?: string;
 }
 
 export interface AgentSession {
@@ -62,6 +74,8 @@ export interface AgentSession {
   modelId?: string;
   thinking?: ThinkingLevel;
   accessMode?: AccessMode;
+  /** Context window usage as reported by the agent's own status line. */
+  context?: { used: number; limit: number };
 }
 
 export type AgentMissingReason = "not-on-path" | "missing-required" | "unsupported-runtime";

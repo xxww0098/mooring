@@ -1,6 +1,7 @@
 @import "tailwindcss/theme" theme(static);
-@import "tailwindcss/utilities";
+@import "tailwindcss/utilities" important;
 @import "@xterm/xterm/css/xterm.css";
+@import "streamdown/styles.css";
 
 @source "../components/workspace/**/*.tsx";
 @source "../components/ui/**/*.tsx";
@@ -28,8 +29,15 @@
   --font-serif: "Source Serif 4", "Iowan Old Style", Georgia, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
 
-  --text-chip: 13px;
-  --text-chip--line-height: 20px;
+  /* Four type roles, one ramp: metadata, label, body, title. */
+  --text-meta: 11px;
+  --text-meta--line-height: 16px;
+  --text-label: 12px;
+  --text-label--line-height: 17px;
+  --text-body: 13px;
+  --text-body--line-height: 21px;
+  --text-title: 15px;
+  --text-title--line-height: 22px;
 
   --radius-xs: 4px;
   --radius-sm: 8px;
@@ -37,10 +45,49 @@
   --radius-lg: 16px;
   --radius-composer: 22px;
 
-  --spacing-add: 28px;
-  --spacing-send: 34px;
+  /* One control ramp on a 4px rhythm: micro, row, field, bar. */
+  --spacing-micro: 24px;
+  --spacing-row: 28px;
+  --spacing-field: 32px;
+  --spacing-bar: 36px;
+  --spacing-add: 24px;
+  --spacing-send: 24px;
 
   --shadow-border: 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+  /* Motion scale ported from Apache Maka (Apache-2.0), apps/desktop/src/renderer/
+     maka-tokens.css: one easing, four durations picked by intent, not by feel.
+       quick       — hover/press feedback, focus rings
+       base        — colour/border/transform on interactive elements
+       emphasized  — stronger hover/focus/status feedback
+       large       — structural motion (disclosure, mount), not a default
+     Two standing rules travel with it: never inline the curve, never `transition: all`. */
+  --ease-out-strong: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-quick: 120ms;
+  --duration-base: 150ms;
+  --duration-emphasized: 180ms;
+  --duration-large: 280ms;
+
+}
+
+
+/* Light theme: same warm world, inverted elevation. Obsidian stamps .theme-light /
+   .theme-dark on <body>, so the plugin follows the host theme with no toggle. */
+body.theme-light {
+  --color-bg: #f2f0ec;
+  --color-surface: #faf9f7;
+  --color-elevated: #e8e5df;
+  --color-paper: #ffffff;
+  --color-fg: #1c1b19;
+  --color-muted: #63615b;
+  --color-subtle: #7c7a73;
+  --color-accent: #4e6b52;
+  --color-accent-fg: #f7f6f3;
+  --color-danger: #b3402c;
+  --color-send: #3b7ef0;
+  --color-send-hover: #2f6ede;
+  --color-send-fg: #ffffff;
+  --shadow-border: 0 0 0 1px rgba(28, 27, 25, 0.1);
 }
 
 .mooring-root {
@@ -52,13 +99,237 @@
   font-family: var(--font-sans);
 }
 
-.mooring-root button:not(:disabled),
-.mooring-root [role="button"]:not(:disabled) {
+/* Popovers, dialogs and tooltips portal to document.body, outside .mooring-root. */
+.mooring-surface {
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+}
+
+/* Obsidian styles bare elements (button:not(.clickable-icon), input, h2 ...) at a
+   specificity Tailwind utilities lose to, and this build ships no preflight.
+   The reset outranks those rules; the !important utilities still win over it. */
+.mooring-root :is(button, input, textarea, select):not(.clickable-icon),
+.mooring-surface :is(button, input, textarea, select):not(.clickable-icon) {
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  height: auto;
+  width: auto;
+  text-align: inherit;
+  justify-content: normal;
+  white-space: normal;
+}
+
+.mooring-root :is(h1, h2, h3, h4, p, ul, ol, li, pre, code),
+.mooring-surface :is(h1, h2, h3, h4, p, ul, ol, li, pre, code) {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  list-style: none;
+}
+
+:where(.mooring-root, .mooring-surface) button:not(:disabled),
+:where(.mooring-root, .mooring-surface) [role="button"]:not(:disabled) {
   cursor: pointer;
+}
+
+.mooring-root ::selection,
+.mooring-surface ::selection {
+  background: color-mix(in oklab, var(--color-accent) 35%, transparent);
+  color: var(--color-fg);
+}
+
+.mooring-root,
+.mooring-surface,
+.mooring-root *,
+.mooring-surface * {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--color-fg) 18%, transparent) transparent;
+}
+
+
+/* Streamdown renders plain semantic HTML; the chat's reading styles live here. */
+.mooring-prose {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--color-fg);
+}
+
+.mooring-prose > * + * {
+  margin-top: 0.6em;
+}
+
+.mooring-prose :is(h1, h2, h3, h4) {
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 1.1em;
+}
+
+.mooring-prose h1 { font-size: 1.25em; }
+.mooring-prose h2 { font-size: 1.14em; }
+.mooring-prose :is(h3, h4) { font-size: 1.04em; }
+
+.mooring-prose :is(ul, ol) {
+  padding-left: 1.35em;
+  list-style-position: outside;
+}
+
+.mooring-prose ul { list-style-type: disc; }
+.mooring-prose ol { list-style-type: decimal; }
+.mooring-prose li + li { margin-top: 0.25em; }
+.mooring-prose li::marker { color: var(--color-subtle); }
+
+.mooring-prose a {
+  color: var(--color-send);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mooring-prose :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-xs);
+  background: var(--color-chip);
+}
+
+.mooring-prose pre {
+  overflow-x: auto;
+  padding: 0.7em 0.85em;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-border);
+}
+
+.mooring-prose pre code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.mooring-prose blockquote {
+  padding-left: 0.8em;
+  border-left: 2px solid var(--color-border-strong);
+  color: var(--color-muted);
+}
+
+.mooring-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  display: block;
+  overflow-x: auto;
+}
+
+.mooring-prose :is(th, td) {
+  border: 1px solid var(--color-border);
+  padding: 0.35em 0.55em;
+  text-align: left;
+}
+
+.mooring-prose th {
+  font-weight: 600;
+  background: var(--color-chip);
+}
+
+.mooring-prose hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.mooring-prose img {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+}
+
+
+/* Streaming vocabulary ported from Apache Maka (Apache-2.0): one shimmer per turn
+   while the agent is working, a short opacity entrance when its text settles.
+   Two sweeps a few pixels apart read as two things competing, so there is only one. */
+@keyframes mooring-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.mooring-root .mooring-shimmer,
+.mooring-surface .mooring-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted) 0%,
+    var(--color-subtle) 50%,
+    var(--color-muted) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: mooring-shimmer 4s var(--ease-linear, linear) infinite;
+}
+
+@keyframes mooring-stream-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mooring-stream-in {
+  animation: mooring-stream-fade-in var(--duration-emphasized) var(--ease-out-strong) both;
+}
+
+/* Disclosure without a measured height, per Maka's tool-detail row. */
+@keyframes mooring-disclose {
+  from { grid-template-rows: 0fr; }
+  to { grid-template-rows: 1fr; }
+}
+
+.mooring-disclose {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: mooring-disclose var(--duration-large) var(--ease-out-strong) both;
+}
+
+.mooring-disclose > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* One stroke weight for every drawn glyph: mixed weights are the classic
+   "can't say why it looks unpolished" tell. */
+.mooring-root svg.lucide,
+.mooring-surface svg.lucide {
+  stroke-width: 1.75;
+}
+
+/* Reduced motion means fewer and gentler animations, not zero (Apache Maka):
+   cap durations so state changes still fire and stay observable. */
+@media (prefers-reduced-motion: reduce) {
+  .mooring-root *,
+  .mooring-root *::before,
+  .mooring-root *::after,
+  .mooring-surface *,
+  .mooring-surface *::before,
+  .mooring-surface *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .mooring-root .xterm,
 .mooring-root .xterm-viewport,
 .mooring-root .xterm-screen {
   height: 100%;
+}
+
+/* xterm.css paints the viewport black; the rows carry the theme colour, not this. */
+.mooring-root .xterm-viewport {
+  background: var(--color-surface);
 }

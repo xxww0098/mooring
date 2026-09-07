@@ -2,6 +2,7 @@ import { MessageSquare, Plus, SquareTerminal, X } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 import { AgentMark } from "@/components/workspace/AgentMark";
 import { Button } from "@/components/ui/button";
+import { supportsChatUi } from "@/lib/agents/chat-profile";
 import { killHostAgent, launchHostAgent } from "@/lib/agents/host";
 import { TUI_AGENT_BY_ID } from "@/lib/agents/catalog";
 import type { AgentPermissionMode, LaunchableAgentId } from "@/lib/agents/catalog";
@@ -27,8 +28,8 @@ function ViewToggle({
       <span
         aria-hidden
         className={cn(
-          "pointer-events-none absolute top-0.5 left-0.5 size-8 rounded-full bg-elevated transition-transform duration-200 ease-out",
-          value === "terminal" && "translate-x-8",
+          "pointer-events-none absolute top-0.5 left-0.5 size-row rounded-full bg-elevated transition-transform duration-[var(--duration-emphasized)] ease-out-strong",
+          value === "terminal" && "translate-x-7",
         )}
       />
       <button
@@ -37,11 +38,11 @@ function ViewToggle({
         aria-pressed={value === "chat"}
         onClick={() => onChange("chat")}
         className={cn(
-          "relative z-10 inline-flex size-8 items-center justify-center rounded-full transition-colors duration-200",
+          "relative z-10 inline-flex size-row items-center justify-center rounded-full transition-colors duration-[var(--duration-emphasized)]",
           value === "chat" ? "text-fg" : "text-muted hover:text-fg",
         )}
       >
-        <MessageSquare className="size-3.5" />
+        <MessageSquare className="size-3.5" strokeWidth={1.75} />
       </button>
       <button
         type="button"
@@ -49,11 +50,11 @@ function ViewToggle({
         aria-pressed={value === "terminal"}
         onClick={() => onChange("terminal")}
         className={cn(
-          "relative z-10 inline-flex size-8 items-center justify-center rounded-full transition-colors duration-200",
+          "relative z-10 inline-flex size-row items-center justify-center rounded-full transition-colors duration-[var(--duration-emphasized)]",
           value === "terminal" ? "text-fg" : "text-muted hover:text-fg",
         )}
       >
-        <SquareTerminal className="size-3.5" />
+        <SquareTerminal className="size-3.5" strokeWidth={1.75} />
       </button>
     </div>
   );
@@ -61,7 +62,10 @@ function ViewToggle({
 
 function AgentSessionPane({ session }: { session: AgentSession }) {
   const pty = useHostPty(session.id, true);
-  const view = session.viewMode === "terminal" ? "terminal" : "chat";
+  // The store pins unsupported agents to the terminal; only they never mount the chat
+  // scraper, which runs a headless xterm of its own.
+  const chat = supportsChatUi(session.agentId);
+  const view = session.viewMode;
   const runtimeLabel =
     session.agentId === "custom"
       ? "custom"
@@ -71,18 +75,25 @@ function AgentSessionPane({ session }: { session: AgentSession }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {session.error ? <p className="px-3 py-2 text-sm text-danger">{session.error}</p> : null}
-      <div className="min-h-0 flex-1">
+      {session.error ? <p className="px-4 py-2 text-label text-danger">{session.error}</p> : null}
+      <div className="relative min-h-0 flex-1">
         {session.status === "error" ? (
-          <p className="px-3 py-4 text-sm text-muted">{runtimeLabel} 未能启动。</p>
+          <p className="px-4 py-4 text-label text-muted">{runtimeLabel} 未能启动。</p>
         ) : (
           <>
-            <div className={cn("h-full p-2", view !== "terminal" && "hidden")}>
+            <div
+              className={cn(
+                "h-full p-1.5",
+                view !== "terminal" && "pointer-events-none absolute inset-0 -z-10",
+              )}
+            >
               <AgentTerminal sessionId={session.id} visible={view === "terminal"} pty={pty} />
             </div>
-            <div className={cn("h-full", view !== "chat" && "hidden")}>
-              <AgentChat key={session.id} session={session} pty={pty} />
-            </div>
+            {chat ? (
+              <div className={cn("h-full", view !== "chat" && "hidden")}>
+                <AgentChat key={session.id} session={session} pty={pty} />
+              </div>
+            ) : null}
           </>
         )}
       </div>
@@ -143,16 +154,16 @@ export function AgentDock() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-2">
+      <header className="flex h-bar shrink-0 items-center gap-2 border-b border-border px-2">
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
           {agents.length === 0 ? (
-            <p className="px-1 text-sm font-medium text-muted">Agents</p>
+            <p className="px-1 text-label font-medium text-muted">Agents</p>
           ) : (
             agents.map((agent) => (
               <div
                 key={agent.id}
                 className={cn(
-                  "flex h-8 shrink-0 items-center rounded-sm pl-2 text-xs",
+                  "flex h-row shrink-0 items-center rounded-md pl-2 text-label",
                   agent.id === activeId
                     ? "bg-elevated text-fg"
                     : "text-muted hover:bg-elevated/60 hover:text-fg",
@@ -161,7 +172,7 @@ export function AgentDock() {
                 <button
                   type="button"
                   onClick={() => selectAgent(agent.id)}
-                  className="flex items-center gap-1 py-1 pr-1"
+                  className="flex items-center gap-1.5 py-1 pr-1"
                 >
                   <span
                     className={cn(
@@ -179,7 +190,7 @@ export function AgentDock() {
                     void killHostAgent({ data: { sessionId: agent.id } });
                     removeAgent(agent.id);
                   }}
-                  className="mr-0.5 inline-flex size-6 items-center justify-center rounded-sm text-muted hover:text-fg"
+                  className="mr-1 inline-flex size-5 items-center justify-center rounded-sm text-subtle hover:text-fg"
                 >
                   <X className="size-3" />
                 </button>
@@ -188,15 +199,20 @@ export function AgentDock() {
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2 pr-1">
-          {active ? (
+          {active && supportsChatUi(active.agentId) ? (
             <ViewToggle
-              value={active.viewMode === "terminal" ? "terminal" : "chat"}
+              value={active.viewMode}
               onChange={(next) => setViewMode(active.id, next)}
             />
           ) : null}
           {menu(
-            <Button size="icon-sm" className="size-7" aria-label="新建">
-              <Plus className="size-3.5" />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-row shrink-0 rounded-full border border-border hover:border-border-strong"
+              aria-label="新建"
+            >
+              <Plus className="size-3.5" strokeWidth={1.75} />
             </Button>,
           )}
         </div>
@@ -204,12 +220,13 @@ export function AgentDock() {
 
       <div className="min-h-0 flex-1">
         {!active ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
-            <p className="font-serif text-lg text-fg">还没有 Agent</p>
-            <p className="max-w-64 text-sm leading-6 text-muted">
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="font-serif text-title text-fg">还没有 Agent</p>
+            <p className="max-w-60 text-label leading-5 text-muted">
               点新建会启动默认智能体。换其他的用右上角，或先到智能体设置里刷新并启用。
             </p>
             <Button
+              size="sm"
               onClick={() => {
                 const input = spawnDefaultAgentSession();
                 if (!input) {
