@@ -201,7 +201,14 @@ export function familiesForAgent(
         ...claudeFamiliesFromCatalog(api).slice(0, 2),
       ];
     default:
-      return [];
+      // Multi-provider CLIs (opencode, aider, goose, crush …) pick their own backend,
+      // so offer what the public catalog knows instead of leaving the chip empty.
+      return [
+        ...claudeFamiliesFromCatalog(api).slice(0, 3),
+        ...openaiFamiliesFromCatalog(api).slice(0, 3),
+        ...geminiFamiliesFromCatalog(api).slice(0, 2),
+        ...grokFamiliesFromCatalog(api, hostIds).slice(0, 2),
+      ];
   }
 }
 

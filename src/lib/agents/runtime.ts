@@ -61,6 +61,7 @@ function knownInstallDirs(home: string): string[] {
   const dirs = [
     join(process.cwd(), "node_modules", ".bin"),
     join(home, ".grok", "bin"),
+    join(home, ".opencode", "bin"),
     join(home, ".local", "bin"),
     join(home, ".npm-global", "bin"),
     join(home, ".volta", "bin"),
@@ -340,27 +341,56 @@ async function buildModelCatalogs(
   return catalogs;
 }
 
-function wrapPty(command: string): { bin: string; args: string[] } {
-  if (process.platform === "darwin" && existsSync("/usr/bin/script")) {
-    return { bin: "/usr/bin/script", args: ["-q", "/dev/null", "/bin/sh", "-lc", command] };
+/** Escape sequence the client uses to resize the pty; a TUI never emits it. */
+export const PTY_RESIZE_PREFIX = "\x1b]777;mooring-resize;";
+
+// expect owns the pty, so a plain SIGWINCH cannot reach it. `interact` watches our own
+// stdin for the resize sequence above and runs stty on the slave, which makes the TUI
+// redraw at the size the visible terminal actually has.
+const EXPECT_PTY_SCRIPT = [
+  'set stty_init "raw -echo rows 40 columns 120"',
+  "spawn -noecho sh -lc $env(MOORING_PTY_CMD)",
+  "set slave $spawn_out(slave,name)",
+  "interact {",
+  "  -re {\x1b]777;mooring-resize;([0-9]+)x([0-9]+)\x07} {",
+  "    catch {exec stty rows $interact_out(2,string) columns $interact_out(1,string) < $slave}",
+  "  }",
+  "}",
+].join("\n");
+
+function wrapPty(command: string): { bin: string; args: string[]; env: Record<string, string> } {
+  // BSD script needs a tty on its own stdin; spawned from an app it gets a socket and
+  // dies with "tcgetattr/ioctl: Operation not supported on socket". expect allocates the
+  // pty itself, so it survives piped stdio. The command travels in the environment to
+  // keep Tcl quoting out of it.
+  if (process.platform === "darwin" && existsSync("/usr/bin/expect")) {
+    return { bin: "/usr/bin/expect", args: ["-c", EXPECT_PTY_SCRIPT], env: { MOORING_PTY_CMD: command } };
   }
   if (existsSync("/usr/bin/script") || resolveCommand("script", extraPath())) {
-    return { bin: "script", args: ["-qefc", command, "/dev/null"] };
+    return { bin: "script", args: ["-qefc", command, "/dev/null"], env: {} };
   }
-  return { bin: "/bin/sh", args: ["-lc", command] };
+  return { bin: "/bin/sh", args: ["-lc", command], env: {} };
 }
 
+// Detection is a PATH scan and must never wait on the network or on `grok models`;
+// the catalogs come back separately so the settings list paints immediately.
 export async function probeHostAgents() {
-  const pathEnv = extraPath();
-  const agents = probeCatalog(pathEnv);
-  const catalogs = await buildModelCatalogs(pathEnv, agents);
+  const agents = probeCatalog(extraPath());
   return {
     ok: true as const,
     runtime: process.platform,
     agents,
     detectedIds: agents.filter((item) => item.available).map((item) => item.id),
-    catalogs,
   };
+}
+
+export async function loadHostModelCatalogs() {
+  const pathEnv = extraPath();
+  try {
+    return { ok: true as const, catalogs: await buildModelCatalogs(pathEnv, probeCatalog(pathEnv)) };
+  } catch {
+    return { ok: true as const, catalogs: {} };
+  }
 }
 
 export async function probeHostCommand(data: { command: string }) {
@@ -407,8 +437,10 @@ export async function launchHostAgent(data: {
     env: {
       ...process.env,
       ...launch.env,
+      ...wrapped.env,
       PATH: pathEnv,
       TERM: process.env.TERM || "xterm-256color",
+      LANG: process.env.LANG || "en_US.UTF-8",
       COLUMNS: "120",
       LINES: "40",
     },
@@ -457,6 +489,24 @@ export async function writeHostAgent(data: { sessionId: string; data: string }) 
     return { ok: false as const };
   }
   live.child.stdin.write(data.data);
+  return { ok: true as const };
+}
+
+/** Sessions outlive the window otherwise: the children are reparented, not killed. */
+export function killAllHostAgents() {
+  for (const live of sessions.values()) {
+    live.running = false;
+    live.child.kill("SIGTERM");
+  }
+  sessions.clear();
+}
+
+export async function resizeHostAgent(data: { sessionId: string; cols: number; rows: number }) {
+  const live = sessions.get(data.sessionId);
+  if (!live?.running) return { ok: false as const };
+  const cols = Math.max(20, Math.min(500, Math.round(data.cols)));
+  const rows = Math.max(5, Math.min(200, Math.round(data.rows)));
+  live.child.stdin?.write(`${PTY_RESIZE_PREFIX}${cols}x${rows}\x07`);
   return { ok: true as const };
 }
 

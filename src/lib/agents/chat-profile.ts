@@ -112,6 +112,19 @@ const EXTRA_CHROME: Partial<Record<LaunchableAgentId, string[]>> = {
   codex: ["gpt-5", "codex"],
 };
 
+/**
+ * The chat view is a screen scrape of the agent's own TUI. It only holds together for
+ * agents Mooring knows end to end: a ready prompt (EXTRA_READY), status-bar chrome to
+ * drop (EXTRA_CHROME), and the slash commands the composer controls send
+ * (composer-controls.ts). A lone ready pattern is not enough; every other agent gets
+ * the terminal and nothing else.
+ */
+const CHAT_UI_IDS = new Set<LaunchableAgentId>(["claude", "openclaude", "codex", "grok"]);
+
+export function supportsChatUi(id: LaunchableAgentId): boolean {
+  return CHAT_UI_IDS.has(id);
+}
+
 export function getAgentChatProfile(id: LaunchableAgentId): AgentChatProfile {
   const spec = id === "custom" || id === "terminal" ? null : TUI_AGENT_BY_ID[id];
   const mode: PromptInjectionMode = spec?.promptInjectionMode ?? "stdin-after-start";

@@ -6,6 +6,10 @@ export const probeHostAgents = createServerFn({ method: "GET" }).handler(async (
   return runtime.probeHostAgents();
 });
 
+export const loadHostModelCatalogs = createServerFn({ method: "GET" }).handler(async () => {
+  return runtime.loadHostModelCatalogs();
+});
+
 export const probeHostCommand = createServerFn({ method: "POST" })
   .validator((input: { command: string }) => input)
   .handler(async ({ data }) => runtime.probeHostCommand(data));
@@ -30,6 +34,10 @@ export const saveHostAttachments = createServerFn({ method: "POST" })
 export const writeHostAgent = createServerFn({ method: "POST" })
   .validator((input: { sessionId: string; data: string }) => input)
   .handler(async ({ data }) => runtime.writeHostAgent(data));
+
+export const resizeHostAgent = createServerFn({ method: "POST" })
+  .validator((input: { sessionId: string; cols: number; rows: number }) => input)
+  .handler(async ({ data }) => runtime.resizeHostAgent(data));
 
 export const killHostAgent = createServerFn({ method: "POST" })
   .validator((input: { sessionId: string }) => input)

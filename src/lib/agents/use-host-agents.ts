@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { probeHostAgents } from "./host";
+import { loadHostModelCatalogs, probeHostAgents } from "@/lib/agents/host";
 import {
   formatLaunchDisplay,
   getTuiAgentDetectCommands,
@@ -46,9 +46,14 @@ export function useHostAgents(active: boolean) {
       .then((result) => {
         setProbes(result.agents);
         setDetectedAgents(result.agents.filter((item) => item.available).map((item) => item.id));
-        if (result.catalogs) setModelCatalogs(result.catalogs);
       })
       .finally(() => setProbing(false));
+    // Models.dev and `grok models` are slow and offline-prone; they must not hold the list.
+    void loadHostModelCatalogs()
+      .then((result) => {
+        if (result.catalogs) setModelCatalogs(result.catalogs);
+      })
+      .catch(() => {});
   }, [setDetectedAgents, setModelCatalogs]);
 
   useEffect(() => {

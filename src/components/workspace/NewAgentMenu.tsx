@@ -133,15 +133,15 @@ export function NewAgentMenu({
       }}
     >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent align={align} className="flex max-h-[min(28rem,70dvh)] w-72 flex-col overflow-hidden p-0">
+      <PopoverContent align={align} className="flex max-h-[min(24rem,68dvh)] w-56 flex-col overflow-hidden p-0">
         <label className="flex shrink-0 items-center gap-2 border-b border-border px-3">
-          <Search className="size-3.5 text-subtle" />
+          <Search className="size-3 text-subtle" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="搜索智能体"
             aria-label="搜索智能体"
-            className="h-10 min-w-0 flex-1 bg-transparent text-sm text-fg outline-none placeholder:text-subtle"
+            className="h-field min-w-0 flex-1 bg-transparent text-body text-fg outline-none placeholder:text-subtle"
           />
         </label>
         <div className="min-h-0 flex-1 overflow-y-auto py-1">
@@ -150,17 +150,17 @@ export function NewAgentMenu({
               type="button"
               title="打开本机 shell"
               onClick={launchTerminal}
-              className="flex h-10 w-full items-center gap-2.5 px-3 text-left text-sm text-fg hover:bg-elevated"
+              className="flex h-row w-full items-center justify-start gap-2.5 px-3 text-left text-body text-fg hover:bg-elevated"
             >
-              <SquareTerminal className="size-4 text-muted" />
+              <SquareTerminal className="size-3.5 text-muted" />
               <span className="truncate">新终端</span>
             </button>
           ) : null}
           {visible.length === 0 ? (
             q && !showTerminal ? (
-              <p className="px-3 py-6 text-center text-sm text-muted">没有匹配的智能体</p>
+              <p className="px-3 py-5 text-label text-muted">没有匹配的智能体</p>
             ) : !q ? (
-              <p className="px-3 py-3 text-center text-sm text-muted">还没有启用的智能体</p>
+              <p className="px-3 py-3 text-label text-muted">还没有启用的智能体</p>
             ) : null
           ) : (
             <>
@@ -171,9 +171,9 @@ export function NewAgentMenu({
                 type="button"
                 title={item.detectCmd}
                 onClick={() => launch(item.id)}
-                className="flex h-10 w-full items-center gap-2.5 px-3 text-left text-sm text-fg hover:bg-elevated"
+                className="flex h-row w-full items-center justify-start gap-2.5 px-3 text-left text-body text-fg hover:bg-elevated"
               >
-                <AgentMark id={item.id} className="size-4" />
+                <AgentMark id={item.id} className="size-3.5" />
                 <span className="truncate">{item.name}</span>
               </button>
               ))}
@@ -188,10 +188,10 @@ export function NewAgentMenu({
               onOpenSettings();
             }}
             className={cn(
-              "flex h-10 w-full items-center gap-2.5 px-3 text-left text-sm text-muted hover:bg-elevated hover:text-fg",
+              "flex h-row w-full items-center justify-start gap-2.5 px-3 text-left text-body text-muted hover:bg-elevated hover:text-fg",
             )}
           >
-            <Settings className="size-4" />
+            <Settings className="size-3.5" />
             智能体设置...
           </button>
         </div>

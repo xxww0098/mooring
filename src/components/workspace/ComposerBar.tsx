@@ -46,7 +46,7 @@ import {
   type ComposerAttachment,
 } from "@/lib/agents/composer-media";
 import { useAgentStore } from "@/lib/agents/store";
-import { probeHostAgents } from "@/lib/agents/host";
+import { loadHostModelCatalogs } from "@/lib/agents/host";
 import type { AccessMode, AgentSession, ThinkingLevel } from "@/lib/agents/types";
 import type { ComposerRef } from "@/lib/agents/composer-ref";
 import type { HostPty } from "@/lib/agents/use-host-pty";
@@ -85,11 +85,53 @@ function PermissionGlyph({ mode, className }: { mode: AccessMode; className?: st
   );
 }
 
-function ThinkingGlyph() {
+const RING_R = 5.6;
+const RING_C = 2 * Math.PI * RING_R;
+
+function formatTokens(value: number): string {
+  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e3) return `${Math.round(value / 1e3)}K`;
+  return String(Math.round(value));
+}
+
+function ContextRing({
+  context,
+  estimate,
+}: {
+  context?: { used: number; limit: number };
+  estimate: number;
+}) {
+  const pct = context ? Math.min(100, Math.round((context.used / context.limit) * 100)) : null;
+  const title = context
+    ? context.limit === 100
+      ? `上下文已用 ${pct}%`
+      : `上下文 ${pct}% · ${formatTokens(context.used)} / ${formatTokens(context.limit)}`
+    : `已发送约 ${formatTokens(estimate)} tokens · 智能体未上报上下文`;
   return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden className="size-4">
-      <circle cx="8" cy="8" r="5.6" stroke="currentColor" strokeWidth="1.4" />
-    </svg>
+    <span
+      role="img"
+      aria-label={title}
+      className={cn(
+        "grid size-row shrink-0 place-items-center",
+        pct !== null && pct >= 90 ? "text-danger" : pct !== null && pct >= 70 ? "text-fg" : "text-muted",
+      )}
+    >
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden className="size-4">
+        <circle cx="8" cy="8" r={RING_R} stroke="currentColor" strokeWidth="1.4" opacity="0.28" />
+        {pct !== null ? (
+          <circle
+            cx="8"
+            cy="8"
+            r={RING_R}
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeDasharray={`${(RING_C * pct) / 100} ${RING_C}`}
+            transform="rotate(-90 8 8)"
+          />
+        ) : null}
+      </svg>
+    </span>
   );
 }
 
@@ -119,7 +161,7 @@ function ChipSelect<T extends string>({
           type="button"
           disabled={disabled}
           aria-label={ariaLabel}
-          className="inline-flex h-add max-w-[14rem] items-center gap-1 rounded-full px-2 text-chip font-medium text-muted hover:bg-chip hover:text-fg disabled:opacity-40"
+          className="inline-flex h-row max-w-[14rem] items-center gap-1 rounded-full px-2 text-meta font-medium text-muted hover:bg-chip hover:text-fg disabled:opacity-40"
           onMouseDown={(event) => event.preventDefault()}
         >
           {icon ? <span className="inline-flex size-3.5 shrink-0 items-center justify-center">{icon}</span> : null}
@@ -132,7 +174,7 @@ function ChipSelect<T extends string>({
           <button
             key={item.id}
             type="button"
-            className="flex h-9 w-full items-center justify-between gap-2 px-3 text-left text-sm hover:bg-elevated"
+            className="flex h-field w-full items-center justify-between gap-2 px-3 text-left text-body hover:bg-elevated"
             onClick={() => {
               onChange(item.id);
               setOpen(false);
@@ -159,7 +201,7 @@ function MenuRow({
   return (
     <button
       type="button"
-      className="flex h-10 w-full items-center justify-between gap-3 px-3.5 text-left text-sm hover:bg-elevated"
+      className="flex h-field w-full items-center justify-between gap-3 px-3 text-left text-body hover:bg-elevated"
       onClick={onClick}
     >
       <span className="text-muted">{label}</span>
@@ -176,6 +218,8 @@ function ModelEffortPicker({
   modelId,
   effort,
   disabled,
+  context,
+  estimate,
   onModel,
   onEffort,
 }: {
@@ -183,6 +227,8 @@ function ModelEffortPicker({
   modelId: string;
   effort: ThinkingLevel;
   disabled?: boolean;
+  context?: { used: number; limit: number };
+  estimate: number;
   onModel: (id: string) => void;
   onEffort: (id: ThinkingLevel) => void;
 }) {
@@ -207,7 +253,7 @@ function ModelEffortPicker({
             type="button"
             disabled={disabled}
             aria-label="模型"
-            className="inline-flex h-add max-w-[16rem] items-center gap-1 rounded-full bg-chip px-2.5 text-chip font-medium text-fg hover:bg-paper disabled:opacity-40"
+            className="inline-flex h-row max-w-[15rem] items-center gap-1 rounded-full bg-chip px-2.5 text-meta font-medium text-fg hover:bg-paper disabled:opacity-40"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
               setPanel("root");
@@ -218,21 +264,7 @@ function ModelEffortPicker({
             <ChevronDown className="size-3 shrink-0 text-subtle" />
           </button>
         </PopoverAnchor>
-        {hasEffort ? (
-          <button
-            type="button"
-            disabled={disabled}
-            aria-label="推理等级"
-            className="grid size-add place-items-center rounded-full text-muted hover:bg-chip hover:text-fg disabled:opacity-40"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => {
-              setPanel("effort");
-              setOpen(true);
-            }}
-          >
-            <ThinkingGlyph />
-          </button>
-        ) : null}
+        <ContextRing context={context} estimate={estimate} />
       </div>
       <PopoverContent align="end" side="top" className="w-64 overflow-hidden py-1">
         {panel === "root" ? (
@@ -247,7 +279,7 @@ function ModelEffortPicker({
           <>
             <button
               type="button"
-              className="flex h-10 w-full items-center gap-1.5 px-3 text-sm text-muted hover:bg-elevated hover:text-fg"
+              className="flex h-field w-full items-center gap-1.5 px-3 text-label text-muted hover:bg-elevated hover:text-fg"
               onClick={() => setPanel("root")}
             >
               <ChevronLeft className="size-3.5" />
@@ -261,7 +293,7 @@ function ModelEffortPicker({
                   onModel(item.id);
                   setPanel("root");
                 }}
-                className="flex h-10 w-full items-center justify-between gap-2 px-3.5 text-left text-sm hover:bg-elevated"
+                className="flex h-field w-full items-center justify-between gap-2 px-3 text-left text-body hover:bg-elevated"
               >
                 <span>{item.label}</span>
                 {item.id === family.id ? <Check className="size-3.5 text-muted" /> : null}
@@ -273,7 +305,7 @@ function ModelEffortPicker({
           <>
             <button
               type="button"
-              className="flex h-10 w-full items-center gap-1.5 px-3 text-sm text-muted hover:bg-elevated hover:text-fg"
+              className="flex h-field w-full items-center gap-1.5 px-3 text-label text-muted hover:bg-elevated hover:text-fg"
               onClick={() => setPanel("root")}
             >
               <ChevronLeft className="size-3.5" />
@@ -287,7 +319,7 @@ function ModelEffortPicker({
                   onEffort(item.id);
                   setPanel("root");
                 }}
-                className="flex h-10 w-full items-center justify-between gap-2 px-3.5 text-left text-sm hover:bg-elevated"
+                className="flex h-field w-full items-center justify-between gap-2 px-3 text-left text-body hover:bg-elevated"
               >
                 <span>{item.label}</span>
                 {item.id === effort ? <Check className="size-3.5 text-muted" /> : null}
@@ -361,12 +393,21 @@ export function ComposerBar({
     [agentId, modelCatalogs],
   );
 
+  // Keyed on the agent only: the host never returns a catalog for some agents, and
+  // re-running on every store write would refetch (and re-spawn `grok models`) forever.
   useEffect(() => {
-    if (modelCatalogs[agentId]?.length) return;
-    void probeHostAgents().then((result) => {
-      if (result.catalogs) setModelCatalogs(result.catalogs);
-    });
-  }, [agentId, modelCatalogs, setModelCatalogs]);
+    if (useAgentStore.getState().modelCatalogs[agentId]?.length) return;
+    void loadHostModelCatalogs()
+      .then((result) => {
+        if (result.catalogs) setModelCatalogs(result.catalogs);
+      })
+      .catch(() => {});
+  }, [agentId, setModelCatalogs]);
+  // Fallback only: what we sent, not what the agent's context actually holds.
+  const estimatedTokens = useMemo(
+    () => Math.round(session.messages.reduce((sum, item) => sum + item.content.length, 0) / 3.5),
+    [session.messages],
+  );
   const family = resolveFamily(families, session.modelId);
   const modelId = family?.id ?? "";
   const thinking = family ? resolveEffort(family, session.thinking) : "high";
@@ -424,7 +465,7 @@ export function ComposerBar({
                 {refs.map((item) => (
                   <span
                     key={item.id}
-                    className="inline-flex h-6 max-w-[14rem] items-center gap-1 rounded-full bg-chip pl-2 pr-0.5 text-xs text-fg"
+                    className="inline-flex h-micro max-w-[14rem] items-center gap-1 rounded-full bg-chip pl-2 pr-0.5 text-meta text-fg"
                   >
                     {item.kind === "skill" ? (
                       <Sparkles className="size-3 shrink-0 text-accent" />
@@ -460,7 +501,7 @@ export function ComposerBar({
                       </span>
                     )}
                     <span className="min-w-0 pr-1">
-                      <span className="block truncate text-xs text-fg">{item.name}</span>
+                      <span className="block truncate text-meta text-fg">{item.name}</span>
                     </span>
                     <button
                       type="button"
@@ -475,12 +516,12 @@ export function ComposerBar({
                 ))}
               </div>
             ) : null}
-            {attachError ? <p className="text-xs text-danger">{attachError}</p> : null}
+            {attachError ? <p className="text-meta text-danger">{attachError}</p> : null}
           </div>
         ) : null}
         <div
           className={cn(
-            "relative flex flex-col gap-3 rounded-composer bg-elevated pt-2.5 shadow-[var(--shadow-border)]",
+            "relative flex flex-col gap-2 rounded-composer bg-elevated pt-2 shadow-[var(--shadow-border)]",
             dragging && "ring-2 ring-accent",
           )}
           onDragEnter={(event) => {
@@ -501,7 +542,7 @@ export function ComposerBar({
           }}
         >
           {dragging ? (
-            <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-composer bg-elevated/80 text-sm text-muted">
+            <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-composer bg-elevated/80 text-label text-muted">
               放到这里，发给智能体
             </div>
           ) : null}
@@ -522,21 +563,21 @@ export function ComposerBar({
               event.preventDefault();
               void addFiles(files);
             }}
-            rows={2}
+            rows={1}
             placeholder={!live ? "会话已结束" : "发消息、粘贴截图，或把文件拖进来"}
             disabled={ended}
             aria-label="对话输入"
-            className="min-h-[52px] w-full resize-none overflow-y-auto bg-transparent px-4 pt-1 pr-2 text-sm leading-6 text-fg caret-send outline-none placeholder:text-subtle disabled:text-subtle"
+            className="max-h-40 min-h-[32px] w-full resize-none overflow-y-auto bg-transparent px-3 pt-1 pr-2 text-label leading-5 text-fg caret-send outline-none placeholder:text-subtle disabled:text-subtle"
           />
-          <div className="flex flex-wrap items-center justify-between gap-3 px-2 pt-0.5 pb-1.5">
-            <div className="flex min-w-0 items-center gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3 pb-2">
+            <div className="flex min-w-0 items-center gap-2">
               <Popover open={plusOpen} onOpenChange={setPlusOpen}>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
                     disabled={ended}
                     aria-label="添加"
-                    className="grid size-add place-items-center rounded-full bg-chip text-fg hover:bg-paper disabled:opacity-40"
+                    className="grid size-add place-items-center rounded-full border border-border bg-surface text-muted shadow-[var(--shadow-border)] transition-colors hover:border-border-strong hover:text-fg disabled:opacity-40"
                     onMouseDown={(event) => event.preventDefault()}
                   >
                     <Plus className="size-3.5" />
@@ -545,7 +586,7 @@ export function ComposerBar({
                 <PopoverContent align="start" side="top" className="w-44 overflow-hidden py-1">
                   <button
                     type="button"
-                    className="flex h-9 w-full items-center gap-2 px-3 text-left text-sm hover:bg-elevated"
+                    className="flex h-field w-full items-center gap-2 px-3 text-left text-body hover:bg-elevated"
                     onClick={() => {
                       insertDraft("/");
                       setPlusOpen(false);
@@ -556,7 +597,7 @@ export function ComposerBar({
                   </button>
                   <button
                     type="button"
-                    className="flex h-9 w-full items-center gap-2 px-3 text-left text-sm hover:bg-elevated"
+                    className="flex h-field w-full items-center gap-2 px-3 text-left text-body hover:bg-elevated"
                     onClick={() => {
                       insertDraft("@");
                       setPlusOpen(false);
@@ -567,7 +608,7 @@ export function ComposerBar({
                   </button>
                   <button
                     type="button"
-                    className="flex h-9 w-full items-center gap-2 px-3 text-left text-sm hover:bg-elevated"
+                    className="flex h-field w-full items-center gap-2 px-3 text-left text-body hover:bg-elevated"
                     onClick={() => {
                       setPlusOpen(false);
                       fileRef.current?.click();
@@ -602,13 +643,15 @@ export function ComposerBar({
                 }}
               />
             </div>
-            <div className="ml-auto flex items-center gap-3">
+            <div className="ml-auto flex items-center gap-2">
               {family ? (
                 <ModelEffortPicker
                   families={families}
                   modelId={modelId}
                   effort={thinking}
                   disabled={ended}
+                  context={session.context}
+                  estimate={estimatedTokens}
                   onModel={(next) => {
                     const picked = resolveFamily(families, next);
                     if (!picked) return;
@@ -629,13 +672,13 @@ export function ComposerBar({
                 aria-label={pending ? "停止" : "发送"}
                 onClick={() => (pending ? onStop() : onSend())}
                 className={cn(
-                  "grid size-send -translate-y-0.5 place-items-center rounded-full text-send-fg transition-opacity",
+                  "grid size-send place-items-center rounded-full text-send-fg transition-opacity",
                   pending ? "bg-danger" : "bg-send hover:bg-send-hover",
                   sendDisabled && "opacity-40",
                 )}
                 onMouseDown={(event) => event.preventDefault()}
               >
-                {pending ? <Square className="size-3.5 fill-current" /> : <ArrowUp className="size-4" />}
+                {pending ? <Square className="size-2 fill-current" /> : <ArrowUp className="size-3.5 translate-y-[0.5px]" />}
               </button>
             </div>
           </div>

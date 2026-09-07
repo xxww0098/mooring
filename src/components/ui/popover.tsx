@@ -18,7 +18,7 @@ export function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "z-50 w-72 origin-[var(--radix-popover-content-transform-origin)] rounded-md border border-border bg-surface p-0 text-fg shadow-[var(--shadow-border)] outline-none",
+          "mooring-surface z-50 w-72 origin-[var(--radix-popover-content-transform-origin)] rounded-md border border-border bg-surface p-0 text-fg shadow-[var(--shadow-border)] outline-none",
           className,
         )}
         {...props}

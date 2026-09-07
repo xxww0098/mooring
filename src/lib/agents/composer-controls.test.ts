@@ -51,9 +51,13 @@ Available models:
   );
 });
 
-test("claude aliases keep max effort; agents without a catalog stay empty", () => {
+test("claude aliases keep max effort; a multi-provider cli still gets a model list", () => {
   const opus = resolveFamily(composerFamilies("claude"), "opus");
   assert.ok(opus?.efforts.some((item) => item.id === "max"));
   assert.equal(opus?.label, "Opus 5");
-  assert.equal(composerFamilies("aider").length, 0);
+  // A CLI that picks its own backend (aider, opencode, goose …) used to show no model
+  // chip at all. It now falls back to the public catalog — never a hand-written list.
+  const fallback = composerFamilies("aider");
+  assert.ok(fallback.length > 0);
+  assert.ok(fallback.every((family) => family.label.length > 0));
 });

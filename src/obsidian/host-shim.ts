@@ -4,6 +4,10 @@ export async function probeHostAgents() {
   return runtime.probeHostAgents();
 }
 
+export async function loadHostModelCatalogs() {
+  return runtime.loadHostModelCatalogs();
+}
+
 export async function probeHostCommand(input: { data: { command: string } }) {
   return runtime.probeHostCommand(input.data);
 }
@@ -20,6 +24,12 @@ export async function saveHostAttachments(input: {
 
 export async function writeHostAgent(input: { data: { sessionId: string; data: string } }) {
   return runtime.writeHostAgent(input.data);
+}
+
+export async function resizeHostAgent(input: {
+  data: { sessionId: string; cols: number; rows: number };
+}) {
+  return runtime.resizeHostAgent(input.data);
 }
 
 export async function killHostAgent(input: { data: { sessionId: string } }) {

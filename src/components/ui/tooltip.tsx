@@ -16,7 +16,7 @@ export function TooltipContent({
       <TooltipPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 rounded-sm bg-elevated px-2 py-1 text-xs text-fg shadow-[var(--shadow-border)]",
+          "mooring-surface z-50 rounded-sm bg-elevated px-2 py-1 text-xs text-fg shadow-[var(--shadow-border)]",
           className,
         )}
         {...props}

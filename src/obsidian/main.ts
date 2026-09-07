@@ -1,6 +1,6 @@
 import { FileSystemAdapter, Plugin, WorkspaceLeaf } from "obsidian";
 import { join } from "node:path";
-import { configureHost } from "@/lib/agents/runtime";
+import { configureHost, killAllHostAgents } from "@/lib/agents/runtime";
 import { useVaultStore } from "@/lib/vault/store";
 import { MooringView, VIEW_TYPE_MOORING } from "./view";
 
@@ -34,6 +34,7 @@ export default class MooringPlugin extends Plugin {
   }
 
   onunload() {
+    killAllHostAgents();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_MOORING);
   }
 
